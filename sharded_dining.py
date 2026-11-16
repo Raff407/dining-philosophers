@@ -25,7 +25,7 @@ class State(Enum):
 
 
 class InvariantViolation(RuntimeError):
-    """Raised if a safety or fairness property is ever broken."""
+    
 
 
 def check(condition: bool, message: str) -> None:
@@ -44,17 +44,10 @@ def schedule(n: int, t: int) -> frozenset[int]:
 
 
 def period_bound(n: int) -> int:
-    """Max shifts between consecutive scheduled shifts of one seat."""
     return 2 if n % 2 == 0 else 3
 
 
 def backfill_choice(n: int, candidates: set[int], arrival: list) -> list[int]:
-    """Choose a maximum independent subset of `candidates` on the cycle C_n.
-
-    Candidates split into maximal runs of consecutive seats. Each run is a
-    path, so alternating from one end is optimal. On an even-length run both
-    phases are the same size; take the phase holding the earliest arrival.
-    """
     if not candidates:
         return []
     check(len(candidates) < n, "candidates cannot cover the whole cycle")
@@ -86,8 +79,6 @@ def backfill_choice(n: int, candidates: set[int], arrival: list) -> list[int]:
 # ---------------------------------------------------------------------------
 
 class Arbitrator:
-    """Monitor for one contiguous arc of seats. Passive: it has no thread."""
-
     def __init__(self, index: int, seats: range) -> None:
         self.index = index
         self.seats = seats
@@ -95,15 +86,6 @@ class Arbitrator:
 
 
 class Table:
-    """Per-seat state is guarded by the lock of the arc that owns the seat.
-
-    Any operation touching seats `X` takes the locks of every arc that owns
-    a seat in `X`, always in ascending arc index (no circular wait).
-      request(i)  touches i-1 .. i+1
-      release(i)  touches i-2 .. i+2   (it may grant either neighbour)
-      boundary    touches every seat
-    """
-
     def __init__(self, n: int, arc_size: int, slice_s: float) -> None:
         if n < 3:
             raise ValueError("need at least 3 philosophers")
@@ -116,16 +98,16 @@ class Table:
         self.arc_of = [seat // arc_size for seat in range(n)]
 
         self.state = [State.THINKING] * n
-        self.holder: list[int | None] = [None] * n   # holder of c_i
+        self.holder: list[int | None] = [None] * n
         self.arrival: list[tuple[int, int]] = [(0, i) for i in range(n)]
-        self.hungry_since = [0] * n                  # shift of last hunger
+        self.hungry_since = [0] * n  
         self.granted = [threading.Event() for _ in range(n)]
         self.preempt = [threading.Event() for _ in range(n)]
 
         self.shift = 0
-        self.running = True          # False while a shift boundary is open
+        self.running = True  
 
-        self._pending: set[int] = set()   # diners not yet off the table
+        self._pending: set[int] = set() 
         self._pending_lock = threading.Lock()
         self._drained = threading.Event()
 
@@ -138,8 +120,6 @@ class Table:
         self.eating_now = 0
         self.max_concurrent = 0
 
-    # -- helpers -------------------------------------------------------------
-
     def _nbrs(self, i: int) -> tuple[int, int]:
         return (i - 1) % self.n, (i + 1) % self.n
 
@@ -147,7 +127,7 @@ class Table:
     def _locked(self, seats: Iterable[int]):
         arcs = sorted({self.arc_of[s % self.n] for s in seats})
         with ExitStack() as stack:
-            for a in arcs:                       # ascending order
+            for a in arcs:    # asc order
                 stack.enter_context(self.arcs[a].lock)
             yield
 
@@ -177,8 +157,6 @@ class Table:
         self.preempt[i].clear()
         self.granted[i].set()
 
-    # -- philosopher API -----------------------------------------------------
-
     def request(self, i: int) -> None:
         """Become hungry and block until granted both chopsticks."""
         with self._locked(range(i - 1, i + 2)):
@@ -205,10 +183,10 @@ class Table:
                 self.state[i] = State.THINKING
                 self.meals[i] += 1
             else:
-                self.state[i] = State.HUNGRY       # arrival time is kept
+                self.state[i] = State.HUNGRY      
                 self.hungry_since[i] = self.shift
                 self.preemptions[i] += 1
-            if self.running:                       # mid-shift opportunism
+            if self.running:
                 for j in sorted(self._nbrs(i), key=lambda s: self.arrival[s]):
                     if self._can_eat(j):
                         self._grant(j, "opportunistic")
@@ -217,8 +195,6 @@ class Table:
                 self._pending.discard(i)
                 if not self._pending:
                     self._drained.set()
-
-    # -- shift clock ---------------------------------------------------------
 
     def advance_shift(self) -> None:
         """Preempt all diners, advance t, grant S_t, then backfill."""
@@ -235,13 +211,13 @@ class Table:
             for i in eaters:
                 self.preempt[i].set()
 
-        self._drained.wait()           # every diner has put its chopsticks down
+        self._drained.wait()     # every diner has put its chopsticks down
 
         with self._locked(everyone):
             self.shift += 1
             self.running = True
             scheduled = schedule(self.n, self.shift)
-            for i in sorted(scheduled):                    # polling
+            for i in sorted(scheduled):  
                 if self.state[i] is State.HUNGRY:
                     check(self._can_eat(i), "scheduled set not independent")
                     self._grant(i, "scheduled")
@@ -251,11 +227,6 @@ class Table:
                 check(self._can_eat(i), "backfill broke independence")
                 self._grant(i, "backfill")
 
-
-# ---------------------------------------------------------------------------
-# Threads and a small simulation harness
-# ---------------------------------------------------------------------------
-
 def run_clock(table: Table, stop: threading.Event) -> None:
     while not stop.wait(table.slice_s):
         table.advance_shift()
@@ -264,18 +235,22 @@ def run_clock(table: Table, stop: threading.Event) -> None:
 def philosopher(table: Table, i: int, meals: int, rng: random.Random,
                 think: tuple[float, float], meal: tuple[float, float]) -> None:
     for _ in range(meals):
-        time.sleep(rng.uniform(*think))                 # think
+        # think
+        time.sleep(rng.uniform(*think))
         remaining = rng.uniform(*meal)
-        table.request(i)                                # request
-        while True:                                     # eat, maybe in slices
+        # request
+        table.request(i)
+        # eat, maybe in slices
+        while True:    
             started = time.monotonic()
             preempted = table.preempt[i].wait(timeout=remaining)
             remaining -= time.monotonic() - started
             finished = not preempted or remaining <= 0
-            table.release(i, finished)                  # release
+            # release
+            table.release(i, finished)
             if finished:
                 break
-            table.await_grant(i)                        # resume next time
+            table.await_grant(i)
 
 
 def simulate(n: int = 7, arc_size: int = 3, meals: int = 5,
@@ -288,7 +263,7 @@ def simulate(n: int = 7, arc_size: int = 3, meals: int = 5,
     def guarded(fn, *args):
         try:
             fn(*args)
-        except Exception as exc:  # noqa: BLE001 - re-raised in the caller below
+        except Exception as exc: 
             errors.append(exc)
 
     stop = threading.Event()
