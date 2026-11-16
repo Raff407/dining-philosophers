@@ -1,4 +1,4 @@
-		# Sharded Arbitration with Rotational Scheduling, Opportunistic Backfill and Bounded Time Slices
+		# My Solution of the Philosophers Dining Problem through Shared Arbitration with Rotational Scheduling, Opportunistic Backfill and Bounded Time Slices
 
 *A deadlock-free, starvation-free solution to the dining philosophers problem with a constant, real-time bound on waiting.*
 
@@ -339,3 +339,7 @@ The single arbitrator is the easiest to prove correct and does not scale. Fully 
 - D. Lehmann, M. O. Rabin. *On the advantages of free choice: a symmetric and fully distributed solution to the dining philosophers problem.* POPL, 1981.
 - K. M. Chandy, J. Misra. *The drinking philosophers problem.* ACM TOPLAS 6(4), 1984.
 - A. S. Tanenbaum, H. Bos. *Modern Operating Systems*, 4th ed. Pearson, 2014.
+
+---
+
+<sub>Disclaimer Note: AI assistance was used to help write the tests as well as formally write up the README.md based on the context of my own notes, working out, and solution.</sub>
