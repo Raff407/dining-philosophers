@@ -29,14 +29,8 @@ class InvariantViolation(RuntimeError):
 
 
 def check(condition: bool, message: str) -> None:
-    # Explicit check rather than `assert`, so it survives `python -O`.
     if not condition:
         raise InvariantViolation(message)
-
-
-# ---------------------------------------------------------------------------
-# Pure scheduling logic (no threads) - this is what the proofs are about.
-# ---------------------------------------------------------------------------
 
 def schedule(n: int, t: int) -> frozenset[int]:
     """Scheduled set S_t = {(t + 2k) mod n : 0 <= k < floor(n/2)}."""
